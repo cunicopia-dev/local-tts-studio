@@ -16,7 +16,7 @@ A professional offline text-to-speech studio with voice cloning capabilities. Tr
 
 ### Prerequisites
 
-1. Python 3.8 or higher
+1. Python 3.8 or higher but not past 3.11
 2. FFmpeg (for audio processing)
 
 ```bash
