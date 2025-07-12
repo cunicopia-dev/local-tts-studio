@@ -86,6 +86,7 @@ class TTSEngine:
                         speaker_wav=str(self._speaker_wav),
                         language=language,
                         file_path=tmp.name,
+                        split_sentences=False  # Disable to preserve our preprocessing
                     )
                 else:
                     # Use predefined speaker (Ana Florence is a default speaker)
@@ -94,6 +95,7 @@ class TTSEngine:
                         speaker="Ana Florence",
                         language=language,
                         file_path=tmp.name,
+                        split_sentences=False  # Disable to preserve our preprocessing
                     )
                 audio = AudioSegment.from_wav(tmp.name)
                 return audio
@@ -123,6 +125,61 @@ class TTSEngine:
             try:
                 audio = self.synthesize_chunk(chunk)
                 combined += audio
+                
+                if progress_callback:
+                    progress_callback(idx, total)
+                    
+            except Exception as e:
+                logger.error(f"Failed to synthesize chunk {idx}/{total}: {e}")
+                raise
+                
+        return combined
+        
+    def synthesize_streaming(self, chunks: List[str], 
+                           progress_callback: Optional[Callable[[int, int], None]] = None,
+                           audio_callback: Optional[Callable[[AudioSegment], None]] = None) -> AudioSegment:
+        """Synthesize multiple text chunks with streaming playback.
+        
+        Args:
+            chunks: List of text chunks to synthesize
+            progress_callback: Optional callback for progress updates (current, total)
+            audio_callback: Optional callback called with each synthesized audio chunk
+            
+        Returns:
+            Combined AudioSegment
+        """
+        if not chunks:
+            raise ValueError("No text chunks provided")
+            
+        combined = AudioSegment.silent(duration=0)
+        total = len(chunks)
+        
+        for idx, chunk in enumerate(chunks, 1):
+            try:
+                # Clean each chunk individually to preserve streaming
+                from src.utils.simple_preprocessing import preprocess_text_for_tts
+                cleaned_chunk = preprocess_text_for_tts(chunk)
+                
+                # Safety check - skip empty or invalid chunks
+                if not cleaned_chunk or not cleaned_chunk.strip():
+                    logger.warning(f"Skipping empty chunk {idx}")
+                    continue
+                    
+                # Ensure only ASCII printable characters (safety for TTS model)
+                cleaned_chunk = ''.join(char for char in cleaned_chunk if 32 <= ord(char) <= 126 or char in ' \t\n')
+                
+                if not cleaned_chunk.strip():
+                    logger.warning(f"Skipping chunk {idx} after ASCII filtering")
+                    continue
+                
+                logger.debug(f"Chunk {idx}: {len(chunk)} -> {len(cleaned_chunk)} chars")
+                
+                audio = self.synthesize_chunk(cleaned_chunk)
+                combined += audio
+                
+                # Call audio callback for immediate playback
+                if audio_callback:
+                    audio_callback(audio)
                 
                 if progress_callback:
                     progress_callback(idx, total)

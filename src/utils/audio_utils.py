@@ -5,6 +5,7 @@ from typing import Optional
 import logging
 import time
 import threading
+import queue
 
 from pydub import AudioSegment
 from pydub.playback import _play_with_simpleaudio as play_simpleaudio
@@ -107,6 +108,133 @@ class AudioPlayer:
     def has_audio_device(self) -> bool:
         """Check if an audio device is available."""
         return self._has_audio_device
+
+
+class StreamingAudioPlayer:
+    """Streaming audio player that plays audio segments as they're queued."""
+    
+    def __init__(self):
+        self._audio_queue = queue.Queue()
+        self._combined_audio = AudioSegment.empty()
+        self._playback_thread = None
+        self._is_playing = False
+        self._stop_event = threading.Event()
+        self._has_audio_device = self._check_audio_device()
+        
+    def _check_audio_device(self) -> bool:
+        """Check if an audio device is available."""
+        try:
+            test_audio = AudioSegment.silent(duration=100)
+            playback = play_simpleaudio(test_audio)
+            if playback:
+                playback.stop()
+                return True
+        except Exception as e:
+            logger.warning(f"No audio device detected: {e}")
+            return False
+        return False
+        
+    def queue_audio(self, audio: AudioSegment) -> None:
+        """Queue an audio segment for immediate playback."""
+        self._audio_queue.put(audio)
+        self._combined_audio += audio
+        
+        # Start playback thread if not running
+        if not self._is_playing:
+            self._start_playback()
+            
+    def _start_playback(self) -> None:
+        """Start the streaming playback thread."""
+        if self._playback_thread and self._playback_thread.is_alive():
+            return
+            
+        self._is_playing = True
+        self._stop_event.clear()
+        self._playback_thread = threading.Thread(target=self._playback_worker, daemon=True)
+        self._playback_thread.start()
+        
+    def _playback_worker(self) -> None:
+        """Worker thread that plays queued audio segments."""
+        current_playback = None
+        
+        try:
+            while self._is_playing and not self._stop_event.is_set():
+                try:
+                    # Get next audio segment with timeout
+                    audio = self._audio_queue.get(timeout=0.5)
+                    
+                    if self._has_audio_device:
+                        # Real audio playback
+                        try:
+                            current_playback = play_simpleaudio(audio)
+                            while current_playback.is_playing() and not self._stop_event.is_set():
+                                time.sleep(0.1)
+                        except Exception as e:
+                            logger.warning(f"Audio playback failed, falling back to simulation: {e}")
+                            self._simulate_playback(audio)
+                    else:
+                        # Simulated playback
+                        self._simulate_playback(audio)
+                        
+                    self._audio_queue.task_done()
+                    
+                except queue.Empty:
+                    # No more audio in queue, check if we should continue
+                    continue
+                    
+        except Exception as e:
+            logger.error(f"Playback worker error: {e}")
+        finally:
+            if current_playback:
+                try:
+                    current_playback.stop()
+                except:
+                    pass
+            self._is_playing = False
+            
+    def _simulate_playback(self, audio: AudioSegment) -> None:
+        """Simulate playback by waiting for audio duration."""
+        duration = len(audio) / 1000.0
+        logger.info(f"Simulating audio playback ({duration:.1f}s)")
+        
+        elapsed = 0
+        while elapsed < duration and not self._stop_event.is_set():
+            time.sleep(0.1)
+            elapsed += 0.1
+            
+    def stop(self) -> None:
+        """Stop all playback and clear queue."""
+        self._stop_event.set()
+        self._is_playing = False
+        
+        # Clear the queue
+        while not self._audio_queue.empty():
+            try:
+                self._audio_queue.get_nowait()
+                self._audio_queue.task_done()
+            except queue.Empty:
+                break
+                
+        if self._playback_thread and self._playback_thread.is_alive():
+            self._playback_thread.join(timeout=1.0)
+            
+        logger.info("Streaming audio playback stopped")
+        
+    def is_playing(self) -> bool:
+        """Check if currently playing audio."""
+        return self._is_playing
+        
+    def has_audio_device(self) -> bool:
+        """Check if an audio device is available."""
+        return self._has_audio_device
+        
+    def get_combined_audio(self) -> AudioSegment:
+        """Get the combined audio of all played segments."""
+        return self._combined_audio
+        
+    def clear_combined_audio(self) -> None:
+        """Clear the combined audio buffer."""
+        self._combined_audio = AudioSegment.empty()
 
 
 def save_audio(audio: AudioSegment, output_path: Path, format: str = "wav") -> None:

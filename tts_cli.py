@@ -8,6 +8,7 @@ from pathlib import Path
 
 from src.core.tts_engine import TTSEngine
 from src.utils.text_processing import load_text_file, extract_text_from_pdf, chunk_text
+from src.utils.text_preprocessing import preprocess_text_for_tts
 from src.utils.audio_utils import save_audio
 from src.config.settings import Settings
 
@@ -48,8 +49,12 @@ def process_file(args):
     else:
         text = load_text_file(input_path)
     
-    # Process text
-    chunks = chunk_text(text, args.chunk_size)
+    # Clean text for TTS (remove emojis, fix problematic characters)
+    cleaned_text = preprocess_text_for_tts(text)
+    logger.info(f"Text cleaned: {len(text)} -> {len(cleaned_text)} characters")
+    
+    # Process cleaned text
+    chunks = chunk_text(cleaned_text, args.chunk_size)
     logger.info(f"Processing {len(chunks)} text chunks...")
     
     def progress_callback(current, total):
