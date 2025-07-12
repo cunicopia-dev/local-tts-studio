@@ -1,0 +1,15 @@
+# Core TTS dependencies
+TTS>=0.22.0
+torch>=2.0.0
+torchaudio>=2.0.0
+
+# Audio processing
+pydub>=0.25.1
+simpleaudio>=1.0.4
+soundfile>=0.12.1
+
+# Document processing
+PyMuPDF>=1.23.0
+
+# System dependencies (install separately):
+# - ffmpeg (sudo apt install ffmpeg)
