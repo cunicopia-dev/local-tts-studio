@@ -1,6 +1,6 @@
-# TTS Audiobook Narrator
+# Local TTS Studio
 
-A professional-grade, offline text-to-speech application with voice cloning capabilities. Convert books, documents, and text into natural-sounding audiobooks using state-of-the-art XTTS-v2 technology.
+A professional offline text-to-speech studio with voice cloning capabilities. Transform books, documents, and any text into natural-sounding audiobooks using state-of-the-art XTTS-v2 technology.
 
 ## Features
 
@@ -34,8 +34,8 @@ brew install ffmpeg
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
-cd tts
+git clone https://github.com/yourusername/local-tts-studio.git
+cd local-tts-studio
 ```
 
 2. Create a virtual environment:
@@ -97,7 +97,7 @@ python tts_cli.py convert large_book.txt book.mp3 --chunk-size 1000
 ## Project Structure
 
 ```
-tts/
+local-tts-studio/
 ├── src/
 │   ├── core/
 │   │   └── tts_engine.py      # TTS synthesis engine
@@ -115,7 +115,7 @@ tts/
 
 ## Configuration
 
-Settings are stored in `~/.tts-narrator/config.json` and include:
+Settings are stored in `~/.local-tts-studio/config.json` and include:
 - TTS model settings
 - Audio output preferences
 - UI customization options
