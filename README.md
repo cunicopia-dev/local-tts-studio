@@ -34,7 +34,7 @@ brew install ffmpeg
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/local-tts-studio.git
+git clone https://github.com/cunicopia-dev/local-tts-studio.git
 cd local-tts-studio
 ```
 
