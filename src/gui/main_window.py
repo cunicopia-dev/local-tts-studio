@@ -11,7 +11,7 @@ from src.core.tts_engine import TTSEngine
 from src.utils.text_processing import (
     load_text_file, extract_text_from_pdf, chunk_text, estimate_reading_time
 )
-from src.utils.audio_utils import AudioPlayer, save_audio
+from src.utils.audio_utils import AudioPlayer, StreamingAudioPlayer, save_audio
 from src.config.settings import Settings
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ class MainWindow:
             model_name=settings.tts.model_name,
             use_gpu=settings.tts.use_gpu
         )
-        self.audio_player = AudioPlayer()
+        self.audio_player = StreamingAudioPlayer()
         self.last_audio = None
         
         # Initialize GUI
@@ -236,7 +236,7 @@ class MainWindow:
         ).start()
         
     def _synthesize_and_play(self, text: str):
-        """Synthesize and play text in background."""
+        """Synthesize and play text with streaming playback."""
         try:
             # Prepare chunks
             chunks = chunk_text(text, self.settings.tts.chunk_size)
@@ -245,23 +245,37 @@ class MainWindow:
             self.progress['maximum'] = total_chunks
             self.progress['value'] = 0
             
+            # Clear any previous audio
+            self.audio_player.clear_combined_audio()
+            
             def update_progress(current, total):
                 self.progress['value'] = current
-                self.status_var.set(f"Synthesizing chunk {current}/{total}")
+                self.status_var.set(f"Processing chunk {current}/{total} - Playing as ready...")
                 
-            # Synthesize
-            self.status_var.set("Starting synthesis...")
-            audio = self.tts_engine.synthesize(chunks, update_progress)
+            def audio_ready_callback(audio_chunk):
+                """Called when each audio chunk is ready for immediate playback."""
+                self.audio_player.queue_audio(audio_chunk)
+                if self.audio_player.has_audio_device():
+                    logger.info(f"Queued audio chunk ({len(audio_chunk)/1000.0:.1f}s)")
+                else:
+                    logger.info(f"Queued audio chunk for simulation ({len(audio_chunk)/1000.0:.1f}s)")
+                
+            # Start streaming synthesis and playback
+            self.status_var.set("Starting synthesis and playback...")
+            audio = self.tts_engine.synthesize_streaming(
+                chunks, 
+                progress_callback=update_progress,
+                audio_callback=audio_ready_callback
+            )
             self.last_audio = audio
             
-            # Play
+            # Update status to show synthesis is complete
             if self.audio_player.has_audio_device():
-                self.status_var.set("Playing audio...")
+                self.status_var.set("Synthesis complete - Playing remaining audio...")
             else:
-                self.status_var.set("Simulating audio playback...")
-            self.audio_player.play(audio)
+                self.status_var.set("Synthesis complete - Simulating remaining audio...")
             
-            # Monitor playback
+            # Monitor playback until all chunks are played
             while self.audio_player.is_playing():
                 threading.Event().wait(0.1)
                 
@@ -289,7 +303,12 @@ class MainWindow:
         
     def _on_save(self):
         """Handle save audio."""
-        if self.last_audio is None:
+        # Try to get audio from last synthesis or streaming player
+        audio_to_save = self.last_audio
+        if audio_to_save is None:
+            audio_to_save = self.audio_player.get_combined_audio()
+            
+        if audio_to_save is None or len(audio_to_save) == 0:
             messagebox.showwarning(
                 "No Audio", 
                 "Please generate audio first before saving."
@@ -312,7 +331,7 @@ class MainWindow:
         try:
             output_path = Path(file_path)
             format = "mp3" if output_path.suffix.lower() == ".mp3" else "wav"
-            save_audio(self.last_audio, output_path, format)
+            save_audio(audio_to_save, output_path, format)
             self.status_var.set(f"Saved: {output_path.name}")
         except Exception as e:
             messagebox.showerror("Save Error", f"Failed to save audio:\n{str(e)}")

@@ -132,3 +132,40 @@ class TTSEngine:
                 raise
                 
         return combined
+        
+    def synthesize_streaming(self, chunks: List[str], 
+                           progress_callback: Optional[Callable[[int, int], None]] = None,
+                           audio_callback: Optional[Callable[[AudioSegment], None]] = None) -> AudioSegment:
+        """Synthesize multiple text chunks with streaming playback.
+        
+        Args:
+            chunks: List of text chunks to synthesize
+            progress_callback: Optional callback for progress updates (current, total)
+            audio_callback: Optional callback called with each synthesized audio chunk
+            
+        Returns:
+            Combined AudioSegment
+        """
+        if not chunks:
+            raise ValueError("No text chunks provided")
+            
+        combined = AudioSegment.silent(duration=0)
+        total = len(chunks)
+        
+        for idx, chunk in enumerate(chunks, 1):
+            try:
+                audio = self.synthesize_chunk(chunk)
+                combined += audio
+                
+                # Call audio callback for immediate playback
+                if audio_callback:
+                    audio_callback(audio)
+                
+                if progress_callback:
+                    progress_callback(idx, total)
+                    
+            except Exception as e:
+                logger.error(f"Failed to synthesize chunk {idx}/{total}: {e}")
+                raise
+                
+        return combined
