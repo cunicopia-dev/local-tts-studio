@@ -147,10 +147,6 @@ python -c "import torch; print(torch.cuda.is_available())"
 - Use CPU mode if GPU memory is limited
 - Process files in smaller sections
 
-## License
-
-[Your License Here]
-
 ## Acknowledgments
 
 - Built with [Coqui TTS](https://github.com/coqui-ai/TTS)
