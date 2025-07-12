@@ -156,8 +156,8 @@ class TTSTextPreprocessor:
         cleaned = self.emoji_patterns.sub(replace_with, text)
         emoji_count = original_length - len(cleaned) + cleaned.count(replace_with)
         
-        # Clean up multiple spaces
-        cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+        # Clean up multiple spaces but preserve newlines
+        cleaned = re.sub(r'[ \t]+', ' ', cleaned).strip()
         
         return cleaned, emoji_count
         
@@ -179,15 +179,15 @@ class TTSTextPreprocessor:
         return processed, replacement_count
         
     def normalize_unicode(self, text: str) -> str:
-        """Normalize Unicode characters to standard forms."""
+        """Normalize Unicode characters to standard forms while preserving essential punctuation."""
         # Normalize to NFD (decomposed) then to NFC (composed)
         normalized = unicodedata.normalize('NFD', text)
         normalized = unicodedata.normalize('NFC', normalized)
         
-        # Remove any remaining control characters except newlines and tabs
+        # Remove only control characters, but preserve all punctuation including apostrophes
         normalized = ''.join(
             char for char in normalized 
-            if unicodedata.category(char) != 'Cc' or char in '\n\t'
+            if not (unicodedata.category(char).startswith('C') and char not in '\n\t')
         )
         
         return normalized

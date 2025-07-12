@@ -154,7 +154,12 @@ class TTSEngine:
         
         for idx, chunk in enumerate(chunks, 1):
             try:
-                audio = self.synthesize_chunk(chunk)
+                # Clean each chunk individually to preserve streaming
+                from src.utils.text_preprocessing import preprocess_text_for_tts
+                cleaned_chunk = preprocess_text_for_tts(chunk)
+                logger.debug(f"Chunk {idx} cleaned: {len(chunk)} -> {len(cleaned_chunk)} chars")
+                
+                audio = self.synthesize_chunk(cleaned_chunk)
                 combined += audio
                 
                 # Call audio callback for immediate playback

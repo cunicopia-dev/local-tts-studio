@@ -324,14 +324,10 @@ class MainWindow:
     def _synthesize_and_play(self, text: str):
         """Synthesize and play text with streaming playback."""
         try:
-            # ALWAYS clean text before synthesis to remove any emojis/problematic chars
-            from src.utils.text_preprocessing import preprocess_text_for_tts
-            cleaned_text = preprocess_text_for_tts(text)
-            logger.info(f"Text cleaned for synthesis: {len(text)} -> {len(cleaned_text)} chars")
-            
-            # Prepare chunks from cleaned text
-            chunks = chunk_text(cleaned_text, self.settings.tts.chunk_size)
+            # First chunk the text to preserve streaming architecture
+            chunks = chunk_text(text, self.settings.tts.chunk_size)
             total_chunks = len(chunks)
+            logger.info(f"Text chunked for streaming: {total_chunks} chunks")
             
             self.progress['maximum'] = total_chunks
             self.progress['value'] = 0
