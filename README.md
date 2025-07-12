@@ -1,6 +1,30 @@
-# Local TTS Studio
+# 🎙️ Local TTS Studio
 
-A professional offline text-to-speech studio with voice cloning capabilities. Transform books, documents, and any text into natural-sounding audiobooks using state-of-the-art XTTS-v2 technology.
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Platform](https://img.shields.io/badge/platform-windows%20%7C%20macos%20%7C%20linux-lightgrey)](https://github.com/yourusername/local-tts-studio)
+[![TTS Engine](https://img.shields.io/badge/TTS-XTTS--v2-green.svg)](https://huggingface.co/coqui/XTTS-v2)
+[![Audio](https://img.shields.io/badge/audio-WAV%20%7C%20MP3-orange.svg)](https://github.com/yourusername/local-tts-studio)
+
+> 🚀 **Professional offline text-to-speech studio with voice cloning capabilities**
+> 
+> Transform books, documents, and any text into natural-sounding audiobooks using state-of-the-art XTTS-v2 technology. No internet required, complete privacy, professional results.
+
+---
+
+## 📋 Table of Contents
+
+- [✨ Key Features](#-key-features)
+- [🚀 Installation](#-installation)
+- [🎯 Usage Guide](#-usage-guide)
+- [🏗️ Architecture](#️-architecture)
+- [🎵 Voice Cloning Guide](#-voice-cloning-guide)
+- [🛠️ Smart Text Processing](#️-smart-text-processing)
+- [⚙️ Configuration & Settings](#️-configuration--settings)
+- [🚨 Troubleshooting](#-troubleshooting)
+- [🔗 What Makes This Interesting](#-what-makes-this-interesting)
+- [📄 License](#-license)
+- [🙏 Acknowledgments](#-acknowledgments)
 
 ## ✨ Key Features
 
@@ -29,13 +53,15 @@ A professional offline text-to-speech studio with voice cloning capabilities. Tr
 - **Dual Interface**: Both GUI and CLI for different workflows
 - **Professional UX**: Progress tracking, status updates, and error handling
 
-## Installation
+## 🚀 Installation
 
-### Prerequisites
+### 📋 Prerequisites
 
-1. **Python 3.8-3.11** (3.12+ not yet supported by TTS dependencies)
-2. **FFmpeg** (for audio processing)
-3. **CUDA-compatible GPU** (optional, but recommended for faster synthesis)
+| Requirement | Version | Notes |
+|-------------|---------|-------|
+| **Python** | 3.8-3.11 | 3.12+ not yet supported by TTS dependencies |
+| **FFmpeg** | Latest | Required for audio processing |
+| **GPU** | CUDA-compatible | Optional, but 5-10x faster than CPU |
 
 ```bash
 # Ubuntu/Debian
@@ -48,9 +74,9 @@ brew install ffmpeg
 # Download from https://ffmpeg.org/download.html
 ```
 
-### Quick Start
+### ⚡ Quick Start
 
-1. **Clone and setup**:
+**1. Clone and setup:**
 ```bash
 git clone https://github.com/yourusername/local-tts-studio.git
 cd local-tts-studio
@@ -59,12 +85,14 @@ source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-2. **Launch GUI**:
+**2. Launch GUI:**
 ```bash
 python run.py
 ```
 
-3. **Start creating**: Load a document, optionally load a voice sample, and click "Speak"!
+**3. Start creating:** Load a document, optionally load a voice sample, and click "Speak"!
+
+> 💡 **First run**: The app will automatically download the XTTS-v2 model (~1.8GB) on first use.
 
 ## 🎯 Usage Guide
 
@@ -75,11 +103,16 @@ python run.py
 python run.py
 ```
 
-**Workflow**:
-1. **Load Content**: File → Open Text/PDF (automatically cleaned)
-2. **Optional Voice**: Voice → Load Voice Sample (for cloning)
-3. **Generate**: Click "Speak" (streaming playback starts immediately)
-4. **Save**: Click "Save Audio" to export WAV/MP3
+**🔄 Workflow:**
+
+```
+📄 Load Content → 🎤 Load Voice (optional) → ▶️ Generate → 💾 Save Audio
+```
+
+1. **📂 Load Content**: File → Open Text/PDF (automatically cleaned)
+2. **🎤 Optional Voice**: Voice → Load Voice Sample (for cloning)  
+3. **▶️ Generate**: Click "Speak" (streaming playback starts immediately)
+4. **💾 Save**: Click "Save Audio" to export WAV/MP3
 
 **Text Editor Features**:
 - **Ctrl+A**: Select all text
@@ -87,35 +120,37 @@ python run.py
 - **Edit → Clean Text for TTS**: Manual text cleaning
 - **Edit → Undo Text Cleaning**: Restore original text
 
-### Command-Line Mode
+### 💻 Command-Line Mode
 
-Convert a text file to audio:
+**Basic conversion:**
 ```bash
 python tts_cli.py convert input.txt output.wav
 ```
 
-With voice cloning:
+**With voice cloning:**
 ```bash
 python tts_cli.py convert book.pdf audiobook.mp3 --voice voice_sample.wav
 ```
 
-Options:
-- `--voice, -v`: WAV file for voice cloning
-- `--chunk-size, -c`: Maximum characters per chunk (default: 2000)
-- `--gpu`: Enable GPU acceleration
-- `--verbose`: Enable detailed logging
+**⚙️ CLI Options:**
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--voice, -v` | WAV file for voice cloning | Built-in voice |
+| `--chunk-size, -c` | Max characters per chunk | 200 |
+| `--gpu` | Enable GPU acceleration | Auto-detect |
+| `--verbose` | Enable detailed logging | False |
 
-### Examples
+### 📚 Examples
 
 ```bash
-# Convert a PDF to MP3 with custom voice
+# 📖 Convert a PDF to MP3 with custom voice
 python tts_cli.py convert manual.pdf manual_audio.mp3 --voice john.wav --gpu
 
-# Convert markdown to WAV
+# 📝 Convert markdown to WAV  
 python tts_cli.py convert README.md readme_audio.wav
 
-# Process with smaller chunks for better memory usage
-python tts_cli.py convert large_book.txt book.mp3 --chunk-size 1000
+# 📕 Process large book with optimized chunks
+python tts_cli.py convert large_book.txt book.mp3 --chunk-size 150
 ```
 
 ## 🏗️ Architecture
@@ -220,7 +255,7 @@ python tts_cli.py convert large_book.txt output.wav --chunk-size 1000
 - **Audio device**: Real playback vs simulation for better experience
 - **Voice samples**: 10-30 seconds optimal for cloning quality
 
-## 🔗 What Makes This Special
+## 🔗 What Makes This Interesting
 
 ### vs. Other TTS Solutions
 - **Truly Offline**: No API keys, no internet required after setup
@@ -239,7 +274,17 @@ python tts_cli.py convert large_book.txt output.wav --chunk-size 1000
 
 ## 📄 License
 
-MIT License - see LICENSE file for details
+### Application Code
+This codebase is licensed under **GPL 3.0** - see LICENSE file for details.
+
+### Model Weights & Third-Party Components
+**Important**: This application uses the XTTS-v2 model weights and other third-party libraries, each with their own licensing terms:
+
+- **XTTS-v2 Model Weights**: Licensed under their original terms by Coqui AI. This codebase does not modify, redistribute, or claim any rights over the model weights themselves.
+- **Coqui TTS Library**: Licensed under Mozilla Public License 2.0
+- **Other Dependencies**: See individual package licenses
+
+**License Clarification**: While this application code is GPL 3.0, we make no claims about changing or affecting the licensing of any model weights, trained models, or third-party libraries used by this application. All third-party components retain their original licensing terms.
 
 ## 🙏 Acknowledgments
 
@@ -248,5 +293,3 @@ MIT License - see LICENSE file for details
 - [XTTS-v2](https://huggingface.co/coqui/XTTS-v2) - Neural voice cloning model
 - [PyMuPDF](https://github.com/pymupdf/PyMuPDF) - PDF text extraction
 - [PyDub](https://github.com/jiaaro/pydub) - Audio processing
-
-**Built with professional software engineering practices for reliability and maintainability.**
