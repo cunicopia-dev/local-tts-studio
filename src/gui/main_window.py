@@ -310,6 +310,7 @@ class MainWindow:
             messagebox.showwarning("No Text", "Please enter or load text first.")
             return
             
+            
         # Disable speak button, enable stop
         self.btn_speak.config(state=tk.DISABLED)
         self.btn_stop.config(state=tk.NORMAL)

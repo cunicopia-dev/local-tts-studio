@@ -86,6 +86,7 @@ class TTSEngine:
                         speaker_wav=str(self._speaker_wav),
                         language=language,
                         file_path=tmp.name,
+                        split_sentences=False  # Disable to preserve our preprocessing
                     )
                 else:
                     # Use predefined speaker (Ana Florence is a default speaker)
@@ -94,6 +95,7 @@ class TTSEngine:
                         speaker="Ana Florence",
                         language=language,
                         file_path=tmp.name,
+                        split_sentences=False  # Disable to preserve our preprocessing
                     )
                 audio = AudioSegment.from_wav(tmp.name)
                 return audio
@@ -155,9 +157,22 @@ class TTSEngine:
         for idx, chunk in enumerate(chunks, 1):
             try:
                 # Clean each chunk individually to preserve streaming
-                from src.utils.text_preprocessing import preprocess_text_for_tts
+                from src.utils.simple_preprocessing import preprocess_text_for_tts
                 cleaned_chunk = preprocess_text_for_tts(chunk)
-                logger.debug(f"Chunk {idx} cleaned: {len(chunk)} -> {len(cleaned_chunk)} chars")
+                
+                # Safety check - skip empty or invalid chunks
+                if not cleaned_chunk or not cleaned_chunk.strip():
+                    logger.warning(f"Skipping empty chunk {idx}")
+                    continue
+                    
+                # Ensure only ASCII printable characters (safety for TTS model)
+                cleaned_chunk = ''.join(char for char in cleaned_chunk if 32 <= ord(char) <= 126 or char in ' \t\n')
+                
+                if not cleaned_chunk.strip():
+                    logger.warning(f"Skipping chunk {idx} after ASCII filtering")
+                    continue
+                
+                logger.debug(f"Chunk {idx}: {len(chunk)} -> {len(cleaned_chunk)} chars")
                 
                 audio = self.synthesize_chunk(cleaned_chunk)
                 combined += audio

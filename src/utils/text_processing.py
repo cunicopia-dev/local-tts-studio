@@ -57,41 +57,70 @@ def load_text_file(file_path: Path) -> str:
 
 
 def chunk_text(text: str, max_chars: int = 2000) -> List[str]:
-    """Split text into manageable chunks for TTS processing.
+    """Split text into TTS-appropriate chunks based on tokens, not just characters.
+    
+    XTTS has a 400 token limit, so we target ~200-250 tokens per chunk for safety.
+    Rough estimate: 1 token ≈ 4 characters, so ~800-1000 characters per chunk.
     
     Args:
         text: The text to chunk
-        max_chars: Maximum characters per chunk
+        max_chars: Maximum characters per chunk (should be ~800-1000 for XTTS)
         
     Returns:
         List of text chunks
     """
+    import re
+    
     if not text:
         return []
-        
-    # Split by paragraphs first
-    paragraphs = [p.strip() for p in text.split('\n\n') if p.strip()]
+    
+    # Use a very conservative character limit for XTTS token limits
+    # XTTS has 400 token limit, aim for ~150 tokens = ~600 characters max
+    safe_max_chars = min(max_chars, 600)  # Cap at 600 chars for safety
+    
     chunks = []
     
+    # First split by double newlines (paragraphs)
+    paragraphs = [p.strip() for p in text.split('\n\n') if p.strip()]
+    
     for paragraph in paragraphs:
-        if len(paragraph) <= max_chars:
+        if len(paragraph) <= safe_max_chars:
             chunks.append(paragraph)
         else:
-            # Split long paragraphs by sentences
-            sentences = paragraph.replace('. ', '.|').split('|')
-            current_chunk = ""
+            # Split by sentences using proper sentence boundaries
+            sentences = re.split(r'(?<=[.!?])\s+', paragraph)
             
+            current_chunk = ""
             for sentence in sentences:
-                if len(current_chunk) + len(sentence) <= max_chars:
-                    current_chunk += sentence
+                # Check if adding this sentence would exceed limit
+                test_chunk = current_chunk + (" " if current_chunk else "") + sentence
+                
+                if len(test_chunk) <= safe_max_chars:
+                    current_chunk = test_chunk
                 else:
+                    # Save current chunk and start new one
                     if current_chunk:
                         chunks.append(current_chunk.strip())
                     current_chunk = sentence
                     
+                    # If single sentence is too long, split it further
+                    if len(current_chunk) > safe_max_chars:
+                        # Split by commas as last resort
+                        parts = current_chunk.split(', ')
+                        current_chunk = ""
+                        for part in parts:
+                            test_part = current_chunk + (", " if current_chunk else "") + part
+                            if len(test_part) <= safe_max_chars:
+                                current_chunk = test_part
+                            else:
+                                if current_chunk:
+                                    chunks.append(current_chunk.strip())
+                                current_chunk = part
+            
+            # Add final chunk
             if current_chunk:
                 chunks.append(current_chunk.strip())
-                
+    
     return chunks
 
 
@@ -188,7 +217,19 @@ def clean_text_for_tts(text: str) -> Dict[str, Any]:
     Returns:
         Dictionary with original text, cleaned text, and statistics
     """
-    return preprocess_text_with_stats(text)
+    from src.utils.simple_preprocessing import simple_preprocess_for_tts
+    
+    processed_text = simple_preprocess_for_tts(text)
+    
+    return {
+        'processed_text': processed_text,
+        'statistics': {
+            'original_length': len(text),
+            'final_length': len(processed_text),
+            'length_change': len(processed_text) - len(text),
+            'processing_steps': ['Simple preprocessing applied']
+        }
+    }
 
 
 def get_cleaning_summary(stats: Dict[str, Any]) -> str:

@@ -14,7 +14,7 @@ class TTSConfig:
     """TTS engine configuration."""
     model_name: str = "tts_models/multilingual/multi-dataset/xtts_v2"
     use_gpu: bool = True
-    chunk_size: int = 2000
+    chunk_size: int = 200  # Very conservative limit for XTTS 250-character warning
     
 
 @dataclass

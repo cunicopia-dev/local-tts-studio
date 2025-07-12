@@ -81,8 +81,10 @@ class TTSTextPreprocessor:
             # Common problematic characters
             '"': '"',           # Smart quotes to regular quotes
             '"': '"',
-            ''': "'",           # Smart apostrophes
+            ''': "'",           # Smart apostrophes to regular apostrophes
             ''': "'",
+            '`': "'",           # Grave accent to regular apostrophe
+            '´': "'",           # Acute accent to regular apostrophe
             '–': '-',           # En dash to hyphen
             '—': ' - ',         # Em dash to spaced hyphen
             '…': '...',         # Ellipsis to three dots
@@ -136,10 +138,17 @@ class TTSTextPreprocessor:
         }
         
     def normalize_line_endings(self, text: str) -> str:
-        """Normalize line endings to Unix format (LF only)."""
-        # Convert CRLF and CR to LF
+        """Normalize line endings and convert to speech-friendly pauses."""
+        # Convert CRLF and CR to LF first
         text = text.replace('\r\n', '\n')  # Windows CRLF
         text = text.replace('\r', '\n')    # Old Mac CR
+        
+        # Convert paragraph breaks (double newlines) to periods for better TTS pacing
+        text = text.replace('\n\n', '. ')  # Paragraph breaks become periods
+        
+        # Convert single newlines to brief pauses (spaces) for better flow
+        text = text.replace('\n', ' ')  # Single newlines become spaces
+        
         return text
         
     def remove_emojis(self, text: str, replace_with: str = " ") -> Tuple[str, int]:
@@ -154,7 +163,10 @@ class TTSTextPreprocessor:
         """
         original_length = len(text)
         cleaned = self.emoji_patterns.sub(replace_with, text)
-        emoji_count = original_length - len(cleaned) + cleaned.count(replace_with)
+        
+        # Fix emoji count calculation - count actual matches, not spaces
+        matches = list(self.emoji_patterns.finditer(text))
+        emoji_count = len(matches)
         
         # Clean up multiple spaces but preserve newlines
         cleaned = re.sub(r'[ \t]+', ' ', cleaned).strip()
