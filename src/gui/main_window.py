@@ -9,10 +9,13 @@ from typing import Optional
 
 from src.core.tts_engine import TTSEngine
 from src.utils.text_processing import (
-    load_text_file, extract_text_from_pdf, chunk_text, estimate_reading_time
+    load_text_file, extract_text_from_pdf, chunk_text, estimate_reading_time,
+    load_and_clean_text_file, extract_and_clean_pdf_text, clean_text_for_tts,
+    get_cleaning_summary
 )
 from src.utils.audio_utils import AudioPlayer, StreamingAudioPlayer, save_audio
 from src.config.settings import Settings
+from src.gui.text_editor_enhancements import TextEditorEnhancements
 
 logger = logging.getLogger(__name__)
 
@@ -28,12 +31,19 @@ class MainWindow:
         )
         self.audio_player = StreamingAudioPlayer()
         self.last_audio = None
+        self.text_editor_enhancements = None
+        self.original_text = None  # Store original text for undo cleaning
         
         # Initialize GUI
         self.root = tk.Tk()
         self._setup_window()
         self._create_widgets()
         self._create_menu()
+        
+        # Setup text editor enhancements
+        self.text_editor_enhancements = TextEditorEnhancements(
+            self.text_box, self.root
+        )
         
         # Initialize TTS in background
         threading.Thread(target=self._init_tts, daemon=True).start()
@@ -138,6 +148,14 @@ class MainWindow:
         file_menu.add_command(label="Exit", command=self.root.quit)
         menubar.add_cascade(label="File", menu=file_menu)
         
+        # Edit menu
+        edit_menu = tk.Menu(menubar, tearoff=0)
+        edit_menu.add_command(label="Find/Replace...", command=self._on_find_replace, accelerator="Ctrl+F")
+        edit_menu.add_separator()
+        edit_menu.add_command(label="Clean Text for TTS", command=self._on_clean_text)
+        edit_menu.add_command(label="Undo Text Cleaning", command=self._on_undo_cleaning)
+        menubar.add_cascade(label="Edit", menu=edit_menu)
+        
         # Voice menu
         voice_menu = tk.Menu(menubar, tearoff=0)
         voice_menu.add_command(
@@ -153,7 +171,7 @@ class MainWindow:
         self.root.config(menu=menubar)
         
     def _on_open_text(self):
-        """Handle opening text file."""
+        """Handle opening text file with automatic cleaning."""
         file_path = filedialog.askopenfilename(
             title="Open Text File",
             filetypes=[("Text files", "*.txt *.md"), ("All files", "*.*")]
@@ -162,21 +180,29 @@ class MainWindow:
             return
             
         try:
-            text = load_text_file(Path(file_path))
-            self.text_box.delete("1.0", tk.END)
-            self.text_box.insert(tk.END, text)
+            # Load and clean text
+            result = load_and_clean_text_file(Path(file_path), auto_clean=True)
             
-            # Update status with reading time estimate
-            time_est = estimate_reading_time(text)
+            # Store original text for undo
+            self.original_text = result['original_text']
+            
+            # Display cleaned text
+            self.text_box.delete("1.0", tk.END)
+            self.text_box.insert(tk.END, result['processed_text'])
+            
+            # Update status with reading time and cleaning info
+            time_est = estimate_reading_time(result['processed_text'])
+            cleaning_summary = get_cleaning_summary(result['statistics'])
+            
             self.status_var.set(
                 f"Loaded: {Path(file_path).name} "
-                f"(~{time_est:.1f} min reading time)"
+                f"(~{time_est:.1f} min) - {cleaning_summary}"
             )
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load file:\n{str(e)}")
             
     def _on_open_pdf(self):
-        """Handle opening PDF file."""
+        """Handle opening PDF file with automatic cleaning."""
         file_path = filedialog.askopenfilename(
             title="Open PDF File",
             filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")]
@@ -185,14 +211,23 @@ class MainWindow:
             return
             
         try:
-            text = extract_text_from_pdf(Path(file_path))
-            self.text_box.delete("1.0", tk.END)
-            self.text_box.insert(tk.END, text)
+            # Extract and clean PDF text
+            result = extract_and_clean_pdf_text(Path(file_path), auto_clean=True)
             
-            time_est = estimate_reading_time(text)
+            # Store original text for undo
+            self.original_text = result['original_text']
+            
+            # Display cleaned text
+            self.text_box.delete("1.0", tk.END)
+            self.text_box.insert(tk.END, result['processed_text'])
+            
+            # Update status with reading time and cleaning info
+            time_est = estimate_reading_time(result['processed_text'])
+            cleaning_summary = get_cleaning_summary(result['statistics'])
+            
             self.status_var.set(
                 f"Loaded PDF: {Path(file_path).name} "
-                f"(~{time_est:.1f} min reading time)"
+                f"(~{time_est:.1f} min) - {cleaning_summary}"
             )
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load PDF:\n{str(e)}")
@@ -200,7 +235,58 @@ class MainWindow:
     def _on_clear_text(self):
         """Clear the text area."""
         self.text_box.delete("1.0", tk.END)
+        self.original_text = None
         self.status_var.set("Text cleared")
+        
+    def _on_find_replace(self):
+        """Show find/replace dialog."""
+        if self.text_editor_enhancements:
+            self.text_editor_enhancements._show_find_replace()
+            
+    def _on_clean_text(self):
+        """Clean current text for TTS."""
+        current_text = self.text_box.get("1.0", tk.END).strip()
+        if not current_text:
+            messagebox.showwarning("No Text", "No text to clean.")
+            return
+            
+        try:
+            # Store original text for undo if not already stored
+            if self.original_text is None:
+                self.original_text = current_text
+                
+            # Clean the text
+            result = clean_text_for_tts(current_text)
+            
+            # Update text box with cleaned text
+            self.text_box.delete("1.0", tk.END)
+            self.text_box.insert(tk.END, result['processed_text'])
+            
+            # Update status
+            cleaning_summary = get_cleaning_summary(result['statistics'])
+            self.status_var.set(f"Text cleaned - {cleaning_summary}")
+            
+            # Show details if significant changes were made
+            stats = result['statistics']
+            if stats.get('emojis_removed', 0) > 0 or stats.get('special_chars_replaced', 0) > 0:
+                details = "\n".join(stats.get('processing_steps', []))
+                messagebox.showinfo("Text Cleaning Complete", 
+                                  f"Cleaning complete!\n\n{details}")
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to clean text:\n{str(e)}")
+            
+    def _on_undo_cleaning(self):
+        """Restore original text before cleaning."""
+        if self.original_text is None:
+            messagebox.showinfo("No Original Text", 
+                              "No original text to restore. Text cleaning undo is only available after cleaning operations.")
+            return
+            
+        self.text_box.delete("1.0", tk.END)
+        self.text_box.insert(tk.END, self.original_text)
+        self.status_var.set("Text cleaning undone - original text restored")
+        self.original_text = None
         
     def _on_load_voice(self):
         """Handle loading voice sample."""
@@ -238,8 +324,13 @@ class MainWindow:
     def _synthesize_and_play(self, text: str):
         """Synthesize and play text with streaming playback."""
         try:
-            # Prepare chunks
-            chunks = chunk_text(text, self.settings.tts.chunk_size)
+            # ALWAYS clean text before synthesis to remove any emojis/problematic chars
+            from src.utils.text_preprocessing import preprocess_text_for_tts
+            cleaned_text = preprocess_text_for_tts(text)
+            logger.info(f"Text cleaned for synthesis: {len(text)} -> {len(cleaned_text)} chars")
+            
+            # Prepare chunks from cleaned text
+            chunks = chunk_text(cleaned_text, self.settings.tts.chunk_size)
             total_chunks = len(chunks)
             
             self.progress['maximum'] = total_chunks
