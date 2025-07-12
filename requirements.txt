@@ -2,6 +2,7 @@
 TTS>=0.22.0
 torch>=2.0.0
 torchaudio>=2.0.0
+transformers<4.50.0  # Pin to avoid GPT2InferenceModel compatibility issues
 
 # Audio processing
 pydub>=0.25.1
